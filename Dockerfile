@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-# Установка системных зависимостей для Chrome и Selenium
+# Установка системных зависимостей для Chrome
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -41,13 +41,19 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копирование исходного кода
 COPY . .
 
-# Создание необходимых директорий
-RUN mkdir -p html_dumps
+# Создание необходимых директорий и файлов
+RUN mkdir -p html_dumps && \
+    touch wildberries_products.json yandex_products.json ozon_products.json && \
+    echo "{}" > wildberries_products.json && \
+    echo "{}" > yandex_products.json && \
+    echo "{}" > ozon_products.json
 
-# Создание файлов данных, если их нет
-RUN for file in wildberries_products.json yandex_products.json ozon_products.json; do \
-        if [ ! -f "$file" ]; then echo "{}" > "$file"; fi \
-    done
+# Переменные окружения
+ENV PYTHONUNBUFFERED=1
+ENV DISPLAY=:99
+
+# Health check порт (обязательно для Time Lab)
+EXPOSE 8080
 
 # Запуск приложения
 CMD ["python", "main.py"]
