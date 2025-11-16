@@ -21,6 +21,7 @@ from selenium.webdriver.chrome.service import Service
 import os
 import hashlib
 
+# Настройка логирования
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -33,18 +34,22 @@ class MarketplaceParser:
         self.chat_id = chat_id
         self.bot = Bot(token=bot_token)
         
+        # Файлы для хранения данных
         self.wildberries_file = 'wildberries_products.json'
         self.yandex_file = 'yandex_products.json'
         self.ozon_file = 'ozon_products.json'
         
+        # Директория для дампов HTML
         self.html_dump_dir = 'html_dumps'
         if not os.path.exists(self.html_dump_dir):
             os.makedirs(self.html_dump_dir)
         
+        # Загрузка существующих данных
         self.wildberries_products = self.load_products(self.wildberries_file)
         self.yandex_products = self.load_products(self.yandex_file)
         self.ozon_products = self.load_products(self.ozon_file)
         
+        # Флаг первого запуска
         self.first_run = {
             "yandex": len(self.yandex_products) == 0,
             "wildberries": len(self.wildberries_products) == 0,
@@ -54,15 +59,10 @@ class MarketplaceParser:
     def normalize_product_name(self, text):
         if not text:
             return ""
-        
         text = text.lower()
-        
         text = re.sub(r'\s+', ' ', text).strip()
-        
         text = re.sub(r'[^\w\sа-яё]', '', text)
-        
         text = re.sub(r'\s+', ' ', text)
-        
         return text
 
     def generate_product_id(self, text):
@@ -163,17 +163,23 @@ class MarketplaceParser:
         try:
             chrome_options = Options()
             
+            # Оптимизация для хостинга
             chrome_options.add_argument('--no-sandbox')
             chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--headless')
+            chrome_options.add_argument('--disable-gpu')
             chrome_options.add_argument('--disable-blink-features=AutomationControlled')
             chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
             chrome_options.add_experimental_option('useAutomationExtension', False)
             
-            chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-            
-            chrome_options.add_argument('--disable-gpu')
+            # Оптимизация производительности
             chrome_options.add_argument('--disable-extensions')
             chrome_options.add_argument('--disable-plugins')
+            chrome_options.add_argument('--disable-images')
+            chrome_options.add_argument('--blink-settings=imagesEnabled=false')
+            chrome_options.add_argument('--disable-javascript')
+            
+            chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
             
             service = Service(ChromeDriverManager().install())
             driver = webdriver.Chrome(service=service, options=chrome_options)
@@ -198,15 +204,15 @@ class MarketplaceParser:
                 logger.info(f"Yandex Market: загрузка {url}")
                 driver.get(url)
                 
-                WebDriverWait(driver, 25).until(
+                WebDriverWait(driver, 20).until(
                     EC.presence_of_element_located((By.TAG_NAME, "body"))
                 )
                 
-                await asyncio.sleep(5)
+                await asyncio.sleep(3)
                 
-                for i in range(3):
-                    driver.execute_script(f"window.scrollTo(0, {i * 800});")
-                    await asyncio.sleep(3)
+                for i in range(2):
+                    driver.execute_script(f"window.scrollTo(0, {i * 600});")
+                    await asyncio.sleep(2)
                 
                 page_source = driver.page_source
                 soup = BeautifulSoup(page_source, 'html.parser')
@@ -241,7 +247,7 @@ class MarketplaceParser:
                             product_id = self.generate_product_id(clean_text)
                             current_products[product_id] = clean_text
                 
-                await self.human_delay(2, 4)
+                await self.human_delay(1, 2)
                 
             except Exception as e:
                 logger.error(f"Ошибка Яндекс Маркет: {e}")
@@ -278,33 +284,29 @@ class MarketplaceParser:
                 driver.get(url)
                 
                 try:
-                    WebDriverWait(driver, 25).until(
+                    WebDriverWait(driver, 20).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, ".product-card__name"))
                     )
                 except:
                     try:
-                        WebDriverWait(driver, 25).until(
+                        WebDriverWait(driver, 20).until(
                             EC.presence_of_element_located((By.CSS_SELECTOR, ".card-product"))
                         )
                     except:
-                        WebDriverWait(driver, 25).until(
+                        WebDriverWait(driver, 20).until(
                             EC.presence_of_element_located((By.TAG_NAME, "body"))
                         )
                 
-                await asyncio.sleep(8)
+                await asyncio.sleep(5)
                 
-                for i in range(8):
-                    driver.execute_script(f"window.scrollTo(0, {i * 1000});")
-                    await asyncio.sleep(2)
+                for i in range(4):
+                    driver.execute_script(f"window.scrollTo(0, {i * 800});")
+                    await asyncio.sleep(1)
                 
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                await asyncio.sleep(3)
-                driver.execute_script("window.scrollTo(0, 0);")
-                await asyncio.sleep(1)
+                await asyncio.sleep(2)
                 
                 page_source = driver.page_source
-                
-                self.save_html_dump(page_source, f"wildberries_debug_{int(time.time())}.html")
                 
                 soup = BeautifulSoup(page_source, 'html.parser')
                 
@@ -331,7 +333,7 @@ class MarketplaceParser:
                                 current_products[product_id] = clean_text
                                 logger.info(f"Найден товар Wildberries: {clean_text}")
                 
-                await self.human_delay(2, 3)
+                await self.human_delay(1, 2)
                 
             except Exception as e:
                 logger.error(f"Ошибка Wildberries: {e}")
@@ -370,22 +372,20 @@ class MarketplaceParser:
                     logger.info(f"Ozon: загрузка {url}")
                     driver.get(url)
                     
-                    WebDriverWait(driver, 20).until(
+                    WebDriverWait(driver, 15).until(
                         EC.presence_of_element_located((By.TAG_NAME, "body"))
                     )
                     
-                    await asyncio.sleep(8)
+                    await asyncio.sleep(5)
                     
-                    for i in range(4):
-                        driver.execute_script(f"window.scrollTo(0, {i * 800});")
-                        await asyncio.sleep(3)
+                    for i in range(3):
+                        driver.execute_script(f"window.scrollTo(0, {i * 600});")
+                        await asyncio.sleep(2)
                     
                     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                    await asyncio.sleep(4)
+                    await asyncio.sleep(2)
                     
                     page_source = driver.page_source
-                    
-                    self.save_html_dump(page_source, f"ozon_debug_{int(time.time())}.html")
                     
                     soup = BeautifulSoup(page_source, 'html.parser')
                     
@@ -440,7 +440,7 @@ class MarketplaceParser:
                                         current_products[product_id] = clean_text
                                         logger.info(f"Найден товар Ozon (ключ): {clean_text}")
                     
-                    await self.human_delay(3, 5)
+                    await self.human_delay(2, 3)
                     
                 except Exception as e:
                     logger.error(f"Ошибка Ozon для {url}: {e}")
@@ -511,14 +511,14 @@ class MarketplaceParser:
         ym_time = time.time() - ym_start
         results.append(f"Яндекс Маркет: {'OK' if ym_success else 'FAILED'} ({ym_time:.1f}с)")
         
-        await asyncio.sleep(5)
+        await asyncio.sleep(3)
         
         wb_start = time.time()
         wb_success = await self.parse_wildberries_selenium()
         wb_time = time.time() - wb_start
         results.append(f"Wildberries: {'OK' if wb_success else 'FAILED'} ({wb_time:.1f}с)")
         
-        await asyncio.sleep(5)
+        await asyncio.sleep(3)
         
         oz_start = time.time()
         oz_success = await self.parse_ozon_selenium()
@@ -622,7 +622,7 @@ def main():
         )
         logger.info("Периодическая проверка настроена (каждые 90 секунд)")
     
-    logger.info("Бот запущен с бережной очисткой товаров")
+    logger.info("Бот запущен с оптимизацией для хостинга")
     
     try:
         application.run_polling()
