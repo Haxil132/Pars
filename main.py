@@ -159,35 +159,40 @@ class MarketplaceParser:
     async def human_delay(self, min_sec=2, max_sec=5):
         await asyncio.sleep(random.uniform(min_sec, max_sec))
 
-    def setup_selenium_driver(self):
-        try:
-            chrome_options = Options()
-            
-            # Оптимизация для хостинга
-            chrome_options.add_argument('--no-sandbox')
-            chrome_options.add_argument('--disable-dev-shm-usage')
-            chrome_options.add_argument('--headless')
-            chrome_options.add_argument('--disable-gpu')
-            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            chrome_options.add_experimental_option('useAutomationExtension', False)
-            
-            # Оптимизация производительности
-            chrome_options.add_argument('--disable-extensions')
-            chrome_options.add_argument('--disable-plugins')
-            chrome_options.add_argument('--disable-images')
-            chrome_options.add_argument('--blink-settings=imagesEnabled=false')
-            chrome_options.add_argument('--disable-javascript')
-            
-            chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-            
-            service = Service(ChromeDriverManager().install())
-            driver = webdriver.Chrome(service=service, options=chrome_options)
-            
-            return driver
-        except Exception as e:
-            logger.error(f"Ошибка настройки Selenium: {e}")
-            return None
+def setup_selenium_driver(self):
+    try:
+        chrome_options = Options()
+        
+        # Обязательные опции для хостинга
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--remote-debugging-port=9222')
+        
+        # Оптимизация производительности
+        chrome_options.add_argument('--disable-extensions')
+        chrome_options.add_argument('--disable-plugins')
+        chrome_options.add_argument('--disable-images')
+        chrome_options.add_argument('--blink-settings=imagesEnabled=false')
+        
+        # Обход детекции
+        chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option('useAutomationExtension', False)
+        
+        chrome_options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        
+        # Используем системный Chrome
+        chrome_options.binary_location = '/usr/bin/google-chrome-stable'
+        
+        service = Service('/usr/local/bin/chromedriver')
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        
+        return driver
+    except Exception as e:
+        logger.error(f"Ошибка настройки Selenium: {e}")
+        return None
 
     async def parse_yandex_market_selenium(self):
         driver = None
@@ -633,3 +638,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
